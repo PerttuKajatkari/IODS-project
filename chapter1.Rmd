@@ -1,13 +1,23 @@
 
 # About the project
 
-*Write a short description about the course and add a link to your GitHub repository here. This is an R Markdown (.Rmd) file so you should use R Markdown syntax.*
+As the name implies, Introduction to Open Data Science (IODS) is an introductory data science course at the University of Helsinki. The purpose of the course is to introduce the students to use of open research tools and open data, state of the art of data science tools *RStudio**, **Rmarkdown** and __GitHub__, and last, teach multivariate statistical methods and data visualization.  Personally, the main focus of my research is time series analysis of magnetically active stars, therefore my statistics toolbox consists mostly of *single variable methods*. I have also mainly used Python for my programming and data analysis needs, and for these two reasons alone I am quite excited about the course and hoping that the skills I will learn here will be inspirational and provide new possibilities for my own research.  The repository for the personal course work can be found [here](https://github.com/PerttuKajatkari/IODS-project).
 
 ```{r}
 # This is a so-called "R chunk" where you can write R code.
-
+There could be code here. But there's not.
 date()
 
 ```
-The text continues here.
+As a warmup, here is some random RMarkdown stuff
+*This
+*Is
+*A
+*list
+It seems LaTex syntax works here, which is nice: $e^{i\pi}=-1$.
+I am a table! | I am a header!
+--------------|---------------
+Cell 1        |Cell 2
+More cells    |and some more
+
 
