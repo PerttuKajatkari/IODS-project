@@ -17,6 +17,7 @@ deep_questions <- c("D03", "D11", "D19", "D27", "D07", "D14", "D22", "D30","D06"
 surface_questions <- c("SU02","SU10","SU18","SU26", "SU05","SU13","SU21","SU29","SU08","SU16","SU24","SU32")
 strategic_questions <- c("ST01","ST09","ST17","ST25","ST04","ST12","ST20","ST28")
 
+#Select the the first requested (unchanged) variables to initialize the analysis dataset
 analysis_dataset = select(full_dataset, "gender", "Age","Attitude","Points")
 
 # select the columns related to deep learning and create column 'deep' by averaging
@@ -31,5 +32,17 @@ analysis_dataset$stra <- rowMeans(stra_columns)
 surf_columns <- select(full_dataset, one_of(surface_questions))
 analysis_dataset$surf <- rowMeans(surf_columns)
 
+#exclude entries with zero points
+analysis_dataset <- filter(analysis_dataset, Points > 0)
 
+#check that the data is OK
+str(analysis_dataset)
+head(analysis_dataset)
 
+#write the dataset to a file
+write.table(analysis_dataset, file="./data/learning2014.txt")
+
+#and test that the file is readable
+
+learning2014 <- read.table("./data/learning2014.txt",header=TRUE)
+str(learning2014)

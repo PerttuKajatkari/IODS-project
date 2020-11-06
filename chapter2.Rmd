@@ -1,13 +1,82 @@
-# Insert chapter 2 title here
+# Exercise 2 - Reading in data and analyzing it with a multiple regression model
+In this exercise we analyze a dataset related to introductory statistics course "Johdatus yhteiskuntatilastotieteeseen", held in autumn 2014. The dataset contains information about the attendants, their age, gender, exam points, numerical values from the answers to questionnaire held at the course, etc.. The dataset used in this exercise uses a subset of the original dataset.
 
-*Describe the work you have done this week and summarize your learning.*
+The dataset is first preprocessed (wrangled) by running a script "create_learning2014.R" found at the GIT-repository and then visualized in order to gain some insight into the structure of the data. We are interested in how different variables could explain how well the student did on the course exam. I will select a few explanatory variables from the dataset that are used to model the dependency between the exam scores and the said variables. Last part is the model validation, where the results from the modeling are reviewed, and I will discuss, whether or not the results are reliable.
 
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
+## Visualizing and exploring the data
 
+In the next code snippet, the data that was wrangled by using the script "create_learning2014.R" is loaded into a variable 'learning2014'. I then plot the data by using routine ggpairs. It plots scatterplots of the various items contained in the data, their distributions and calculates the correlation coefficient between the different variables.
 ```{r}
-date()
+learning2014 <- read.table("./data/learning2014.txt",header=TRUE)
+# First, check that the structure of the data is OK
+summary(learning2014)
 ```
 
-Here we go again...
+In addition to the self-explanatory, the variable "Attitude" reflects the general attitude of the attendant towards statistics. "Stra", "deep", and "surf" are mean scores from three categories of questions that reflect three different learning strategies. "Stra" comes from strategic learning approach, surf reflects a superficial attitude towards learning, and "deep" a more deep, profound learning approach.
+
+
+```{r}
+#Then, visualize the data
+
+#get access to gglot2 and GGally libraries
+library(GGally)
+library(ggplot2)
+
+plt <- ggpairs(learning2014, mapping = aes(), lower = list(combo = wrap("facethist", bins = 20)))
+plt
+
+```
+
+According to the summary, everything seems to be in order, the dataset contains 166 entries of seven variables, just as there should be.
+
+Looking at the data, it is interesting that none of the distributions look strictly normal. Some even show hints of being multimodal. Especially the distributions of  "Points" looks like this. This could indicate that there were distinct groups of people attending the course, such as underachievers, average students, and star pupils, for example. The resultant distribution could be a sum of multiple normal distributions.
+
+The age distribution is very asymmetric, understandably. There is a practical limit on how young people could have attended the course. The other distributions look more normally distributed, albeit slightly distorted.
+
+The strongest correlation found in the dataset is between "Attitude" and "Points", there is also a strong (anti-)correlation between deep and surface learning approaches, which appear to be polar opposites of each other. Actually, the surface/superficial learning strategy seems to anti-correlate with every other metric in the dataset.
+
+## Modeling the data
+For the next part, I chose *Attitude, stra*, and *surf* as explanatory variables, since they showed the greatest correlation in the above analysis. 
+
+```{r}
+#here the data is modeled using multiple linear regression. Points is the dependent variable, Attitude,stra and surf are the explanatory variables
+learning_model <- lm(Points ~ Attitude+stra+surf, data = learning2014)
+summary(learning_model)
+```
+The summary shows that the "Attitude" variable seems to have the most significant contribution to the exam score, with the probability that the parameter is zero (that is, the null hypothesis) Pr(>|t|) = 1.93e-08. The strategic approach seems to contribute quite a bit, the value of the coefficient is high, but since the standard error of the parameter is so high, it does not have such a high significance as the other one. The statistical significance of surface approach coefficient seems to be extremely low, so we drop it from the model and model the data again.
+
+```{r}
+#same as before, without surf
+learning_model2 <- lm(Points ~ Attitude+stra, data = learning2014)
+summary(learning_model2)
+```
+Looking at significance values Pr(>|t|), this model looks like a good fit, the statistical significance of both coefficients has risen from the previous model. One can interpret this model in such way, that a positive attitude towards statistics, perhaps indicative of the motivation of the student, is the most significant predictor of exam performance. There is also some indication that strategic learning approach has some contribution to exam score, but the signal is lower than it is with the attitude.
+
+Although the reliability of the model seems to be quite high, it still does not explain that much of the variance in the data as one could hope for. This is reflected by the relatively low value of Multiple R-squared:  0.2048. It gives a proportional value, how much of the variance in the data is explained by the model. It gets values between one and zero, zero means that the model does not explain anything, one means that the model can explain all the variance in the data (in the case of a simple linear regression, this means that all the data points fall into the regression line).
+
+## Model validation
+
+Last, I estimated the validity of the results by looking at a few diagnostic plots. R makes this quite easy. When the argument of the Plot() function is a model, it automatically assumes the user wants to create diagnostic plots. These plots give a quick way to visually inspect, whether or not the assumptions made during modeling hold.
+
+The validity of the model can be estimated by inspecting the residuals, i.e., the differences between the model and the data. In addition to the obvious assumption, that the relation between the dependent and explanatory variables is linear, linear models also make the following assumptions about the  statistical properties of the errors:
+*The errors are normally distributed
+*The errors are not correlated
+*The errors have constant variance, $\sigma^{2}$
+*The size of a given error does not depend on the explanatory variables
+
+I made three plots to estimate the validity of model and the assumptions: "Residuals vs Fitted values", "Normal QQ-plot", and "Residuals vs Leverage".
+
+The constant variance of errors can be estimated by plotting the residuals against the fitted values. Any pattern in the plot indicates a problem. For the most part, the plot does not show any signs of such a pattern. There are, however, a few suspicious points in the lower part of the plot, that stand out as outliers.
+```{r}
+plot(learning_model2,which=c(1))
+```
+
+The normality of the errors can be estimated by looking at the QQ-plot. The QQ-plot compares the quantiles of the residual distribution and the theoretical (normal) distribution against each other. The nore the points in the plot deviate from the diagonal line, the less normal the residuals are. In this case, the assumption of normality holds quite well, although the tails of the distributions seem wonder away from the line somewhat. On the lower left corner of the plot, the same outliers as in the previous one seem to be present.
+```{r}
+plot(learning_model2,which=c(2))
+```
+
+The last diagnostic plot, "Residuals vs leverage", is used to look if some measurements, such as outliers, have too much influence on the model parameters. In general, the plot looks good, apart from the same outliers as present in the two previous plots. 
+```{r}
+plot(learning_model2,which=c(5))
+```
