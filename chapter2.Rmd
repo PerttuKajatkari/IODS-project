@@ -5,12 +5,13 @@ The dataset is first preprocessed (wrangled) by running a script "create_learnin
 
 ## Visualizing and exploring the data
 
-In the next code snippet, the data that was wrangled by using the script "create_learning2014.R" is loaded into a variable 'learning2014'. I then plot the data by using routine ggpairs. It plots scatterplots of the various items contained in the data, their distributions and calculates the correlation coefficient between the different variables.
+In the next code snippet, the data that was wrangled by using the script "create_learning2014.R" is loaded into a variable 'learning2014'. After that, I plot the data by using routine ggpairs. It creates scatter plots of the various items contained in the data, their distributions and calculates the correlation coefficient between the different variables.
 ```{r}
 learning2014 <- read.table("./data/learning2014.txt",header=TRUE)
 # First, check that the structure of the data is OK
 summary(learning2014)
 ```
+According to the summary, everything seems to be in order, the dataset contains 166 entries of seven variables, just as there should be.
 
 In addition to the self-explanatory, the variable "Attitude" reflects the general attitude of the attendant towards statistics. "Stra", "deep", and "surf" are mean scores from three categories of questions that reflect three different learning strategies. "Stra" comes from strategic learning approach, surf reflects a superficial attitude towards learning, and "deep" a more deep, profound learning approach.
 
@@ -27,7 +28,7 @@ plt
 
 ```
 
-According to the summary, everything seems to be in order, the dataset contains 166 entries of seven variables, just as there should be.
+
 
 Looking at the data, it is interesting that none of the distributions look strictly normal. Some even show hints of being multimodal. Especially the distributions of  "Points" looks like this. This could indicate that there were distinct groups of people attending the course, such as underachievers, average students, and star pupils, for example. The resultant distribution could be a sum of multiple normal distributions.
 
