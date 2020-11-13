@@ -1,7 +1,7 @@
 # Exercise 3 - Logistic regression
 ***
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 #load libraries
 library(dplyr); library(ggplot2)
 
@@ -18,6 +18,7 @@ alc <- read.table("./data/students_alc.txt",header=TRUE)
 dim(alc)
 str(alc)
 ```
+
 I have selected four interesting variables to explain the possible high/low alcohol consumption, "age", "sex", "studytime", and "Pstatus". The reasoning/interest was following:
 * Age: One would assume, that alcohol consumption increases with age.
 * Sex: Due to social expectations and perhaps peer pressure, boys will likely drink more.
@@ -32,7 +33,8 @@ g <- ggplot(data = alc, aes(x=high_use))
 g+facet_wrap("sex")+geom_bar()
 
 ```
-This clearly shows, that boys indeed do seem to drink more.
+
+This clearly shows, that boys indeed do drink more.
  
 ### Age
 Another variable we looked at was age. We look at the variables in the same way as before
@@ -42,6 +44,7 @@ g <- ggplot(data = alc, aes(x=high_use))
 g+facet_wrap("age")+geom_bar()
 
 ```
+
 Once again, the hypothesis appeared to be true, drinking does increase with age.
 
 ### Study hours
@@ -52,6 +55,7 @@ g <- ggplot(data = alc, aes(x=high_use))
 g+facet_wrap("studytime")+geom_bar()
 
 ```
+
 The percentage of heavy drinkers seems clearly decrease with the amount of hours spent on studying. As study time most likely correlates with academic performance in general, we most likely could have chosen course grades (G1,G2,G3) to get a similar result.
 
 ### Parent's cohabitation status
@@ -63,6 +67,7 @@ g <- ggplot(data = alc, aes(x=high_use))
 g+facet_wrap("Pstatus")+geom_bar()
 
 ```
+
 In this case, there seems to be no clear relation between the variables.
 
 ## Logistic regression modeling
