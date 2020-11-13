@@ -1,0 +1,102 @@
+# Exercise 3 - Logistic regression
+***
+
+```{r}
+#load libraries
+library(dplyr); library(ggplot2)
+
+```
+
+
+## Data description
+The dataset analyzed in this exercise contains student achievement data in secondary education of two Portugese schools. The data attributes include student grades, demographic, social and school related features, and it was collected by using school reports and questionnaires. Full description of the data can be found [here](https://archive.ics.uci.edu/ml/datasets/Student+Performance).
+
+Of particular intereset is the student alcohol consumption. Variable "alc_use" is the average of workday  alcohol consumption "Dalc" and weekend alcohol consumption "Walc". Boolean "high_use" is TRUE if "alc_use" is > 2, it is otherwise FALSE.
+```{r}
+alc <- read.table("./data/students_alc.txt",header=TRUE)
+# First, check that the structure of the data is OK
+dim(alc)
+str(alc)
+```
+I have selected four interesting variables to explain the possible high/low alcohol consumption, "age", "sex", "studytime", and "Pstatus". The reasoning/interest was following:
+* Age: One would assume, that alcohol consumption increases with age.
+* Sex: Due to social expectations and perhaps peer pressure, boys will likely drink more.
+* Study time: A lax attitude to homework might correlate to increased alcohol consumption.
+* Pstatus: A more adventurous guess, whether or not the parents are living together could be a proxy for the psychological well being of the student, and in turn, alcohol use (most likely a better one would be an aggregate of multiple variables). 
+
+### Sex
+First, I looked at the effect of sex to alcohol consumption.
+```{r}
+alc %>% group_by(age,high_use) %>% summarise(count = n())
+g <- ggplot(data = alc, aes(x=high_use))
+g+facet_wrap("sex")+geom_bar()
+
+```
+This clearly shows, that boys indeed do seem to drink more.
+ 
+### Age
+Another variable we looked at was age. We look at the variables in the same way as before
+```{r}
+alc %>% group_by(age,high_use) %>% summarise(count = n())
+g <- ggplot(data = alc, aes(x=high_use))
+g+facet_wrap("age")+geom_bar()
+
+```
+Once again, the hypothesis appeared to be true, drinking does increase with age.
+
+### Study hours
+The amount of hours spent on studying seems also correlate with drinking.
+```{r}
+alc %>% group_by(studytime,high_use) %>% summarise(count = n())
+g <- ggplot(data = alc, aes(x=high_use))
+g+facet_wrap("studytime")+geom_bar()
+
+```
+The percentage of heavy drinkers seems clearly decrease with the amount of hours spent on studying. As study time most likely correlates with academic performance in general, we most likely could have chosen course grades (G1,G2,G3) to get a similar result.
+
+### Parent's cohabitation status
+Last we explored the possibility that whether or not the parent cohabit could have an effect on drinking habits.
+
+```{r}
+alc %>% group_by(Pstatus,high_use) %>% summarise(count = n())
+g <- ggplot(data = alc, aes(x=high_use))
+g+facet_wrap("Pstatus")+geom_bar()
+
+```
+In this case, there seems to be no clear relation between the variables.
+
+## Logistic regression modeling
+I included all the considered variables except the parent cohabitation status in the logistic regression model, since it did not seem to affect the amount the students drank.
+```{r}
+mdl <- glm(high_use ~ sex + studytime + age, data = alc, family = "binomial")
+summary(mdl)
+
+
+```
+The model shows that each of the selected variables have predictive power, as the statistical significance of each model parameter is at least < 0.05. The intercept is quite low, which is follows from the fact that we included age in the regression; since the students are at least 15-16 year old, the positive contribution from age needs to be balanced by a negative intercept. The negative coefficient for study time shows that the amount of studying correlates negatively with the alcohol consumption, whereas being male has an positive effect on the likelihood of excessive drinking (it seems that R has automatically assigned a numerical value 0.0 to females and 1.0 to males in order to perform the regression).
+
+
+```{r}
+library(DescTools)
+OR <- coef(mdl) %>% exp
+CI <- MeanCI(OR)
+cbind(OR, CI)
+
+```
+The same interpretation can be made from the odds ratios. Since odds > 1 are positively associated with success, both male sex and age increase the probability of a student drinking much, the opposite is true for studying much OR = 0.62 (< 1.0).
+
+## Testing the predictive power of the model
+
+Last, I tested the models predictive power by calculating the probability of high alcohol use using the original data set, and then comparing the result to the actual value. The results can be summarized in a so-called confusion matrix, which tabulates the predictions versus the ground truth.
+
+```{r}
+probabilities <- predict(mdl, type = "response")
+alc <- mutate(alc, probability = probabilities)
+alc <- mutate(alc, prediction = probability>0.5) 
+alc %>% group_by(high_use,prediction) %>% summarise(ratio = n())
+
+```
+The values in the summary are the amounts of true and false positives, and true and false negatives. The 0.71 accuracy (accuracy = (TP+TN)/Ntot)) of this model seems to me surprisingly good (considering my low expectations). For a coin toss, the value would be 0.5. On the other hand, the relatively good accuracy is explained by the low number of false positives. The number of false negatives is quite high, so overall this model is not so good in finding out students with a risk of high alcohol consumption.
+
+ 
+
