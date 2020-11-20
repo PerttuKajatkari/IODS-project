@@ -188,4 +188,4 @@ It seems the sub-urban areas are divided quite strongly into industrial areas (i
 
 ## Data wrangling for the next week.
 
-This is done by a script [create_human.R]()
+This is done by a script [create_human.R](https://github.com/PerttuKajatkari/IODS-project/blob/master/create_human.R)
