@@ -7,26 +7,185 @@ output: html_document
 
 ```{r,warning=FALSE,message=FALSE}
 #load libraries
-library(dplyr); library(ggplot2)
+library(dplyr); library(ggplot2); library(corrplot)
+library(MASS); library(tidyr)
 
 ```
 
-## R Markdown
+## Reading in and exploring the data
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this weeks exercise we analysed "Boston" dataset from MASS-library. The dataset contains housing values in Boston suburbs in terms of median value of owner-occupied homes, including various other variables, such as crime rate, pollution, etc..
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r, echo=FALSE}
+#Let's take a look at the data
+data("Boston")
+str(Boston)
+summary(Boston)
+dim(Boston)
 
-```{r cars}
-summary(cars)
+#Let's have a looksie. Since there are quite a few variables, plot each 
+#plot type separately, instead of using, e.g., pairs.
+
+#Correlations
+cor_matrix<-cor(Boston) 
+corrplot(cor_matrix, method="circle",type='upper',cl.pos = "b", tl.pos = "d" ,tl.cex = 0.6)
+
+#Histograms
+Boston %>%  gather() %>%
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+
+
 ```
 
-## Including Plots
+There appear to be clear correlations between some of the variables. This is quite expected, since, for instance, industrial areas (indus) are more likely to be more polluted (nox). Also it is not that surprising, that more expensive neighbourhoods have less crime (medv vs crim), and sub urbs with residents of lower socio-economic status (lstat) have higher rates of crime.
 
-You can also embed plots, for example:
+Looking at the histograms, it is quite clear that only some of the variables appear to be normally distributed, whereas most are not. This is actually quite worrying, since the fundamental assumption of linear discriminant analysis is that the exploratory variables are normally distributed. Nevertheless, we boldly proceed.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Scaling and preparing the data
+
+Next, I scaled the data in order to prepare it for the clustering algorithms.
+
+```{r, echo=FALSE}
+#scale the dataset
+boston_scaled <- as.data.frame(scale(Boston))
+summary(boston_scaled)
+
+#Mean vanished, what about the sdev?
+apply(boston_scaled,2,sd)
+
+```
+The scale() function does column-wise operations to the data. First it removes the mean from each column and then divides the residuals with their standard deviation.
+
+Next I created a new categorical variable from the crime rate by creating quantiles according to how high or low the crime rate was. For model validation, the data was also split into test and training sets.
+
+```{r echo=FALSE}
+bins <- quantile(boston_scaled$crim)
+crime <- cut(boston_scaled$crim, breaks = bins, include.lowest = TRUE, label=c("low", "med_low", "med_high", "high"))
+# remove original crim from the dataset
+boston_scaled <- dplyr::select(boston_scaled, -crim)
+# add the new categorical value to scaled data
+boston_scaled <- data.frame(boston_scaled, crime)
+
+
+# number of rows in the Boston dataset 
+n <- nrow(boston_scaled)
+# choose randomly 80% of the rows
+ind <- sample(n,  size = n * 0.8)
+# create train set
+train <- boston_scaled[ind,]
+# create test set 
+test <- boston_scaled[-ind,]
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Linear discriminant analysis
+
+Next, I applied linear discriminant analysis to the training data
+
+```{r echo=FALSE}
+# linear discriminant analysis
+#crime is the target variable, . indicates that all the other are explanatory 
+#variables
+lda.fit <- lda(crime ~ . , data = train)
+
+# print the lda.fit object
+lda.fit
+
+classes <- as.numeric(train$crime)
+plot(lda.fit,dimen=3,col = classes,pch = classes)
+
+
+```
+Some clusters clearly emerge. As a next step, I tested the predictive power of the model, using a subset
+of the original dataset, with the real category included.
+
+```{r echo=FALSE}
+
+# save the correct classes from test data
+correct_classes <- test$crime
+# remove the crime variable from test data
+test <- dplyr::select(test, -crime)
+#Make a prediction
+lda.pred <- predict(lda.fit, newdata = test)
+#and tabulate the results
+table(correct = correct_classes, predicted = lda.pred$class)
+
+
+```
+From the table you can see, that the model did quite well, especially with the 
+high crime category. All the actual high crime cases were classified correctly, and
+only one medium high suburb was mis-classified as high crime area. Medium low areas
+were hardest to predict, but even that category was mostly predicted correctly.
+
+## K-means clustering
+
+To further analyze the data, I applied K-means clustering to the dataset.
+
+```{r echo=FALSE}
+#Since the Boston dataset is untouched, it can be used as-is.
+#Rewrite the boston_scaled variable
+boston_scaled <- as.data.frame(scale(Boston))
+
+#Check out the distance measures
+dist_boston <- dist(Boston)
+summary(dist_boston)
+km <-kmeans(boston_scaled, centers = 4)
+pairs(boston_scaled[c("crim","medv","dis","rm")], col=km$cluster)
+
+```
+An important part of clustering is to actually determine, what is the optimal number
+of clusters. It can be estimated from the the total cluster sum of squares. The optimum number can be found where the sum changes radically.
+
+```{r echo=FALSE}
+
+k_max <- 10
+# calculate the total within sum of squares
+twcss <- sapply(1:k_max, function(k){kmeans(boston_scaled, k)$tot.withinss})
+
+# visualize the results
+qplot(x = 1:k_max, y = twcss, geom = 'line')
+
+km <-kmeans(boston_scaled, centers = 2)
+pairs(boston_scaled[c("crim","medv","dis","rm")], col=km$cluster)
+
+```
+In this case, the optimum number of clusters appeared to be 2. Two clusters clearly
+separate the dataset to areas, where the crime is virtually non-existent, and to areas, where there is crime.
+
+## Using K-means clusters to classify the data for linear discriminant analysis
+
+As a quick experiment, I checked, how it would look if I used the clusters from K-means
+as classifiers for the linear discriminant analysis.
+
+```{r echo=FALSE}
+#Since the Boston dataset is untouched, it can be used as-is.
+#Rewrite the boston_scaled variable
+boston_scaled <- as.data.frame(scale(Boston))
+
+#Use four clusters this time
+km <-kmeans(boston_scaled, centers = 4)
+clusters = km$cluster
+lda.fit <- lda(crim ~ . , data = boston_scaled)
+
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+
+#plot(lda.fit,dimen=2,col = clusters,pch = clusters)
+plot(lda.fit,dimen=2,col = clusters,pch = clusters)+lda.arrows(lda.fit,myscale=2.0)
+
+```
+It seems the sub-urban areas are divided quite strongly into industrial areas (indu) and areas predominately populated by black people (black=(1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town. ), as these seem to be the strongest linear separators.
+
+## Data wrangling for the next week.
+
+This is done by a script [create_human.R]()
