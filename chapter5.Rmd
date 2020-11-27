@@ -1,0 +1,95 @@
+---
+title: "Exercise5"
+author: "Perttu Kajatkari"
+date: "11/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercise 5 - Dimensionality reduction
+In this exercise we used data that was wrangled together from human development and gender inequality data by country. We have variables:
+
+* "country"
+* "edu2F" (Proportion of females with at least secondary education)
+* "labourF" (Proportion of females in the labour force) 
+* "exp.edu" (Expected years of schooling, both sexes) 
+* "life.exp" (average life expectancy) 
+* "GNI" (Gross National Income per capita) 
+* "mat.mort"(Maternal mortality ratio)
+* "ado.birth" (Adolescent birth rate) 
+* "parl.rep" (Percetange of female representatives in parliament)
+
+## Reading in and checking the data
+```{r,warning=FALSE,message=FALSE}
+#load libraries
+library(dplyr); library(GGally)
+
+human <- read.table("./data/human.txt",header=TRUE)
+# First, check that the data is OK. Should be 155 obs and 8 variables
+dim(human)
+ggpairs(human)
+
+```
+
+Many of the distributions seem to be normal, or at least they are a blend of normal distribution and something else. Some of the more skewed distributions appear also to be normal, but they are only capped at the left hand side (GNI, maternal mortality, for instance). There are quite a few strong correlations (education increases life expectancy). GNI has a tendency to correlate with just about everything, but there is a weird phenomenon, that for some variables, the correlation appears to be more like a condition than an explanation (for the lack of a better word). For example, maternal mortality can be high only if GNI is low, but a low GNI does not predict explicitly, what the maternal mortality will be.
+
+
+## Principal component analysis
+
+After checking that the data set was OK, I applied principal component analysis to the data:
+```{r,warning=FALSE,message=FALSE,out.width="200%"}
+pca_human <- prcomp(human)
+biplot(pca_human, choices = 1:2,cex=0.4,scale=2.0)
+
+```
+
+OK, that looked a bit messy, and GNI dominates the first principal component too much. The second principal component seems to deal with variables that contain a certain dichotomy between developed and non-developed countries. Standardizing the variables might help:
+
+```{r,warning=FALSE,message=FALSE, out.width="200%"}
+human_std <- scale(human)
+pca_human <- prcomp(human_std)
+biplot(pca_human, choices = 1:2,cex=0.4,scale=2.0,xlab="Wealth", ylab="Gender roles")
+
+```
+Scaling seemed to help somewhat, but the plot is still quite terrible (sorry!). With some zooming and scaling following interpretations can be made:
+
+* Principal component 1 could be described as something like an industrialization, or wealth index. In the countries on the left-hand side have women have more education, the child mortality is low etc.. On the right-hand side, countries are poorer, the child mortality is higher and there are more adolescents giving birth to children. 
+* The second principal component shows how much women participate in the society in general, both in governmental roles and also int the general workforce.
+* Western and some African countries have a high percentage of females in active roles in the society
+* Middle-eastern (or maybe islamic?) countries, even if they might be moderately wealthy, are much more male dominated than the other countries.
+
+## Factominer data
+
+As a last part of this exercise, we examine the "tea" dataset from FactoMineR library. Since the number of variables is huge, I selected just a few for the analysis. Also, the bar plot worked only in the individually knitted chapter, so it was left away from the fully knitted document.
+
+```{r,warning=FALSE,message=FALSE}
+library(FactoMineR)
+library(tidyr)
+library(devtools)
+reload(inst("dplyr"))
+data(tea)
+str(tea)
+dim(tea)
+
+keep_columns <- c("Tea", "how", "How", "sugar", "where", "lunch")
+# select the 'keep_columns' to create a new dataset
+tea_time <- select(tea, keep_columns)
+#gather(tea_time)  %>% ggplot(aes(value)) + facet_wrap("key", scales = "free")
+
+# look at the summaries and structure of the data
+
+mca <- MCA(tea_time, graph = FALSE)
+km_data=data.frame(mca$ind$coord)
+km <-kmeans(km_data, centers = 3)
+
+plot(mca,col.ind=km$cluster)
+
+
+
+
+```
+
+From the MCA factor map we find that Dimension 1 divides the tea drinkers into those who use milk (and usually drink Earl Gray), and those who drink their tea black. The other dimension seems to measure "greenness", and whether or not the tea is brewed with tea bags or not. I also coloured the plot with results from a K-means clustering with three clusters. From this, I would identify three groups, sophisticated green tea drinkers (green), sophisticated black tea drinkers (reddish), and casual tea drinkers (black).

@@ -16,13 +16,18 @@ library(MASS); library(tidyr)
 
 In this weeks exercise we analysed "Boston" dataset from MASS-library. The dataset contains housing values in Boston suburbs in terms of median value of owner-occupied homes, including various other variables, such as crime rate, pollution, etc..
 
-```{r, echo=FALSE}
+```{r}
 #Let's take a look at the data
 data("Boston")
 str(Boston)
 summary(Boston)
 dim(Boston)
+```
 
+
+Everything seems to be in order. Next I checked the data correlations and distributions.
+
+```{r}
 #Let's have a looksie. Since there are quite a few variables, plot each 
 #plot type separately, instead of using, e.g., pairs.
 
@@ -36,8 +41,8 @@ Boston %>%  gather() %>%
     facet_wrap(~ key, scales = "free") +
     geom_histogram()
 
-
 ```
+
 
 There appear to be clear correlations between some of the variables. This is quite expected, since, for instance, industrial areas (indus) are more likely to be more polluted (nox). Also it is not that surprising, that more expensive neighbourhoods have less crime (medv vs crim), and sub urbs with residents of lower socio-economic status (lstat) have higher rates of crime.
 
@@ -47,7 +52,7 @@ Looking at the histograms, it is quite clear that only some of the variables app
 
 Next, I scaled the data in order to prepare it for the clustering algorithms.
 
-```{r, echo=FALSE}
+```{r}
 #scale the dataset
 boston_scaled <- as.data.frame(scale(Boston))
 summary(boston_scaled)
@@ -56,11 +61,12 @@ summary(boston_scaled)
 apply(boston_scaled,2,sd)
 
 ```
+
 The scale() function does column-wise operations to the data. First it removes the mean from each column and then divides the residuals with their standard deviation.
 
 Next I created a new categorical variable from the crime rate by creating quantiles according to how high or low the crime rate was. For model validation, the data was also split into test and training sets.
 
-```{r echo=FALSE}
+```{r}
 bins <- quantile(boston_scaled$crim)
 crime <- cut(boston_scaled$crim, breaks = bins, include.lowest = TRUE, label=c("low", "med_low", "med_high", "high"))
 # remove original crim from the dataset
@@ -82,9 +88,9 @@ test <- boston_scaled[-ind,]
 
 ## Linear discriminant analysis
 
-Next, I applied linear discriminant analysis to the training data
+Next, I applied linear discriminant analysis (LDA) to the training data. LDA is a statistical method that tries to separate two or more classes of objects by finding a linear combination of features that can be used as an optimal separator.
 
-```{r echo=FALSE}
+```{r}
 # linear discriminant analysis
 #crime is the target variable, . indicates that all the other are explanatory 
 #variables
@@ -98,10 +104,11 @@ plot(lda.fit,dimen=3,col = classes,pch = classes)
 
 
 ```
+
 Some clusters clearly emerge. As a next step, I tested the predictive power of the model, using a subset
 of the original dataset, with the real category included.
 
-```{r echo=FALSE}
+```{r}
 
 # save the correct classes from test data
 correct_classes <- test$crime
@@ -114,6 +121,8 @@ table(correct = correct_classes, predicted = lda.pred$class)
 
 
 ```
+
+
 From the table you can see, that the model did quite well, especially with the 
 high crime category. All the actual high crime cases were classified correctly, and
 only one medium high suburb was mis-classified as high crime area. Medium low areas
@@ -123,7 +132,7 @@ were hardest to predict, but even that category was mostly predicted correctly.
 
 To further analyze the data, I applied K-means clustering to the dataset.
 
-```{r echo=FALSE}
+```{r}
 #Since the Boston dataset is untouched, it can be used as-is.
 #Rewrite the boston_scaled variable
 boston_scaled <- as.data.frame(scale(Boston))
@@ -135,10 +144,12 @@ km <-kmeans(boston_scaled, centers = 4)
 pairs(boston_scaled[c("crim","medv","dis","rm")], col=km$cluster)
 
 ```
+
+
 An important part of clustering is to actually determine, what is the optimal number
 of clusters. It can be estimated from the the total cluster sum of squares. The optimum number can be found where the sum changes radically.
 
-```{r echo=FALSE}
+```{r}
 
 k_max <- 10
 # calculate the total within sum of squares
@@ -151,6 +162,7 @@ km <-kmeans(boston_scaled, centers = 2)
 pairs(boston_scaled[c("crim","medv","dis","rm")], col=km$cluster)
 
 ```
+
 In this case, the optimum number of clusters appeared to be 2. Two clusters clearly
 separate the dataset to areas, where the crime is virtually non-existent, and to areas, where there is crime.
 
@@ -159,7 +171,7 @@ separate the dataset to areas, where the crime is virtually non-existent, and to
 As a quick experiment, I checked, how it would look if I used the clusters from K-means
 as classifiers for the linear discriminant analysis.
 
-```{r echo=FALSE}
+```{r}
 #Since the Boston dataset is untouched, it can be used as-is.
 #Rewrite the boston_scaled variable
 boston_scaled <- as.data.frame(scale(Boston))
@@ -184,6 +196,7 @@ lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0
 plot(lda.fit,dimen=2,col = clusters,pch = clusters)+lda.arrows(lda.fit,myscale=2.0)
 
 ```
+
 It seems the sub-urban areas are divided quite strongly into industrial areas (indu) and areas predominately populated by black people (black=(1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town. ), as these seem to be the strongest linear separators.
 
 ## Data wrangling for the next week.
