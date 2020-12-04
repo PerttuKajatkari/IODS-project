@@ -1,0 +1,189 @@
+---
+title: "chapter6"
+author: "Perttu Kajatkari"
+date: "12/3/2020"
+output: html_document
+---
+
+```{r load-packages, include=FALSE}
+library(dplyr)
+library(magrittr)
+library(knitr)
+```
+
+# Analysis of longitudinal data
+
+## Data wrangling
+
+First, run the data wrangling script created earlier
+
+```{r}
+RATSL <- read.table("./data/RATSL.txt")
+BPRSL <- read.table("./data/BPRSL.txt")
+
+#Data must be "re-factored" :P
+BPRSL$treatment <- factor(BPRSL$treatment)
+BPRSL$subject <- factor(BPRSL$subject)
+
+RATSL$Group <- factor(RATSL$Group)
+RATSL$ID <- factor(RATSL$ID)
+
+```
+
+
+The data was transformed during wrangling from wide to long form. What this means, is that it groups together and turns several variables (for example, week1,week2, etc.,) into one variable (week), that has multiple values (1,2,3, etc.). Basically, the process creates a *time series* from those variables (this is just because the dimension of the variable is time in this case).
+
+## Rat data 
+
+The first data set is from a rat nutrition study. The three groups were put on different diets, and
+each animal’s body weight (grams) was recorded repeatedly (approximately weekly, except in week seven when two recordings were taken) over a 9-week period.
+
+First, I plotted the data without any scaling
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(RATSL, aes(x = RATSL$time, y = RATSL$weight, linetype = ID)) +  geom_line() +  scale_linetype_manual(values = rep(1:10, times=4)) +  facet_grid(. ~ Group, labeller = label_both) +  theme(legend.position = "none") + scale_x_continuous(name="Time [d]")  + scale_y_continuous(name="Weight [g]",limits = c(min(RATSL$weight), max(RATSL$weight)))
+```
+
+Next, I checked how scaling affects the data. I took the average of the weight of every rats at each time point in order to see, what kind of systematic trend is there (or not). Error bars are given by the average error of the mean.
+
+```{r, message=FALSE, warning=FALSE}
+n <- RATSL$time %>% unique() %>% length()
+n=11
+RATSL_scaled <- RATSL %>% group_by(Group, time) %>% summarise( mean = mean(weight), se = sd(weight )/sqrt(n)) %>% ungroup()
+
+ggplot(RATSL_scaled, aes(x = time, y = mean, linetype=Group, shape = Group)) +
+    geom_line() +
+    geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=1)+ scale_y_continuous(name="Weight [g]")+scale_x_continuous(name="Time [d]")
+```
+## Summary measure analysis
+
+We check the effect of the diet by comparing mean of the differences of the first and the last weight measurement, i.e., it is the summary measure.
+
+```{r, message=FALSE, warning=FALSE}
+#get the first and last weights
+
+first_weight <-RATSL %>% filter(time==min(time)) %>% select(weight, Group, ID)
+last_weight <- RATSL %>% filter(time==max(time)) %>% select(weight, Group, ID)
+RATSL_summary <- select(first_weight,Group,ID) 
+RATSL_summary$first_weight <- first_weight$weight #this was done afterwards :)
+RATSL_summary$weight_gain <- last_weight$weight-first_weight$weight
+
+
+# Draw a boxplot of the mean versus treatment
+ggplot(RATSL_summary, aes(x = Group, y = weight_gain)) +
+  geom_boxplot() +
+  stat_summary(fun.y = "difference", geom = "point", shape=23, size=4, fill = "white")
+
+```
+
+There appears to be one outlier in group 2, so that will be removed
+
+```{r, message=FALSE, warning=FALSE}
+
+RATSL_fout <- filter(RATSL_summary, !(weight_gain<30 & Group ==2))
+
+
+# Draw a boxplot of the mean versus treatment
+ggplot(RATSL_fout, aes(x = Group, y = weight_gain)) +
+  geom_boxplot() +
+  stat_summary(fun.y = "difference", geom = "point", shape=23, size=4, fill = "white")
+
+```
+
+There are clearly differences between the groups, and the removal of the outlier clearly accentuated those differences.
+
+## T-test and Anova
+
+In order to test the statistical validity of my interpretation, I ran two-sided t-test for the weight-gain data.
+
+```{r, message=FALSE, warning=FALSE}
+
+fit <- lm(weight_gain ~ Group + first_weight, data= RATSL_fout)
+anova(fit)
+
+```
+
+The analysis clearly shows that the group 2 has gained weight significantly more than the two other groups.
+
+## BPRS data
+
+This data set is taken from Davis (2002). Here 40 male subjects were randomly assigned to one of two treatment groups and each subject was rated on the brief psychiatric rating scale (BPRS) measured before treatment began (week 0) and then at weekly intervals for eight weeks. The BPRS assesses the level of 18 symptom constructs such as hostility, suspiciousness, hallucinations and grandiosity; each of these is rated from one (not present) to seven (extremely severe). The scale is used to evaluate patients suspected of having schizophrenia.
+
+Here is the plot of the treatment progress
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(BPRSL, aes(x = BPRSL$week, y = BPRSL$bprs, linetype = subject)) +  geom_line() +  scale_linetype_manual(values = rep(1:10, times=4)) +  facet_grid(. ~ treatment, labeller = label_both) +  theme(legend.position = "none") + scale_x_continuous(name="Week")  + scale_y_continuous(name="BPRS")
+```
+
+## Linear model
+
+First I fitted a linear model to the data
+
+```{r, message=FALSE, warning=FALSE}
+#bprs is the target, week and treatment explanatory variables
+model <- lm(bprs ~ week + treatment, data=BPRSL)
+summary(model)
+```
+
+The model clearly shows, that the treatment group has no significant effect on the outcome, but the bprs score decreases very strongly with time.
+
+## Random intercept model
+
+Since the previous model assumes that the results of the measurements are independent of each other, and with repeated measurements of the same subjects, this is clearly not true. A better choice is the random intercept model
+
+```{r, message=FALSE, warning=FALSE}
+library(lme4)
+
+ri_model <- lmer(bprs ~ week + treatment + (1 | subject), data=BPRSL, REML = FALSE)
+summary(ri_model)
+
+```
+
+## Random intercept and random slope model
+
+```{r, message=FALSE, warning=FALSE}
+library(lme4)
+
+rirs_model <- lmer(bprs ~ week + treatment + (week | subject), data=BPRSL, REML = FALSE)
+summary(rirs_model)
+
+```
+According to the loglikelihood, this model is marginally better fit than the previous one.
+
+## Random intercept and random slope model with interaction
+Finally, we allow interaction between the time and treatment
+
+```{r, message=FALSE, warning=FALSE}
+rirswi_model <- lmer(bprs ~ week + treatment + week*treatment + (week | subject), data=BPRSL, REML = FALSE)
+summary(rirswi_model)
+
+```
+
+
+I compared the two last models with ANOVA test. The latter model fits the data better with Chi-squared ~ 0.075.
+
+The plots are admittedly a bit clumsy, for some reason, there is a linestyle related error if I don't divide the plots according to the treatment type.
+
+
+```{r, message=FALSE, warning=FALSE}
+anova(rirswi_model,rirs_model)
+ggplot(BPRSL, aes(x = week, y = bprs, group = subject)) +
+  facet_grid(. ~ treatment, labeller = label_both)+
+  geom_line(aes(linetype = treatment)) +
+  scale_x_continuous(name = "Time (weeks)")+
+  scale_y_continuous(name = "BPRS") +
+  theme(legend.position = "top")
+
+fitted_vector = fitted(rirswi_model)
+
+ggplot(BPRSL, aes(x = week, y = fitted_vector, group = subject)) +
+  facet_grid(. ~ treatment, labeller = label_both)+
+  geom_line(aes(linetype = treatment)) +
+  scale_x_continuous(name = "Time (weeks)") +
+  scale_y_continuous(name = "Fitted bprs)") +
+  theme(legend.position = "top")
+
+```
+
+
