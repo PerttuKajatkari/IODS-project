@@ -11,7 +11,7 @@ library(magrittr)
 library(knitr)
 ```
 
-# Analysis of longitudinal data
+# Exercise 6 - Analysis of longitudinal data
 
 ## Data wrangling
 
